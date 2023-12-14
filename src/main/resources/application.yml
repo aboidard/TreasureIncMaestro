@@ -1,0 +1,22 @@
+quarkus:
+  datasource:
+    username: treasure_inc
+    password: 
+    jdbc: 
+      url: jdbc:postgresql://localhost:5432/treasure_inc
+      max-size: 16
+  hibernate-orm:
+    database:
+      generation: none
+"%dev":
+  quarkus:
+    log: 
+      console:
+        json: false
+"%test":
+  quarkus:
+    log: 
+      console:
+        json: false
+greeting:
+  message: "hello"
