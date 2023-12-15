@@ -1,7 +1,6 @@
-package org.bogomips.treasureInc;
+package org.bogomips.treasureInc.user;
 
 import java.sql.Timestamp;
-import java.util.List;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
@@ -15,7 +14,7 @@ import jakarta.persistence.Table;
 @Table(name = "users")
 public class User extends PanacheEntityBase {
     @Id
-    @SequenceGenerator(name = "users_id_seq", sequenceName = "users_id_seq", allocationSize = 1, initialValue = 1)
+    @SequenceGenerator(name = "users_id_seq", sequenceName = "users_id_seq", allocationSize = 1)
     @GeneratedValue(generator = "users_id_seq")
     private Integer id;
 

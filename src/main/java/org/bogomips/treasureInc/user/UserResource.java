@@ -1,4 +1,4 @@
-package org.bogomips.treasureInc;
+package org.bogomips.treasureInc.user;
 
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
