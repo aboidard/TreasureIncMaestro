@@ -2,6 +2,7 @@ package org.bogomips.treasureInc.user;
 
 import java.sql.Timestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +22,7 @@ public class User extends PanacheEntityBase {
     @Column(name = "public_key")
     private String publicKey;
 
+    @JsonIgnore
     @Column(name = "private_key")
     private String privateKey;
 

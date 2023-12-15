@@ -1,5 +1,7 @@
 package org.bogomips.treasureInc.user;
 
+import io.quarkus.panache.common.Sort;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
@@ -12,7 +14,7 @@ public class UserResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<User> users() {
-        return User.listAll();
+        return User.listAll(Sort.by("id").descending());
     }
 
     @GET
@@ -31,11 +33,15 @@ public class UserResource {
 
     @PUT
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Transactional
     @Path("/{publicKey}")
     public User updateUser(String publicKey, User user) {
         User u = User.findByPublicKey(publicKey);
+        if(u == null) {
+            throw new NotFoundException();
+        }
         u.setMoney(user.getMoney());
-        u.persist();
         return u;
     }
 }
