@@ -18,5 +18,5 @@ quarkus:
     log: 
       console:
         json: false
-greeting:
-  message: "hello"
+maestro:
+  apikey:
