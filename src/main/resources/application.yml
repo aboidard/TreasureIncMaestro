@@ -1,4 +1,9 @@
 quarkus:
+  native:
+    resources:
+      includes: ../treasure-inc-conf/server/conf/.maestro.env
+  http:
+    port: 8082
   datasource:
     username: treasure_inc
     password: 
