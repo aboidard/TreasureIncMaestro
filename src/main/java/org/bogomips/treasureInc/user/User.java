@@ -31,6 +31,7 @@ public class User extends PanacheEntityBase {
     private Timestamp createdAt;
 
     private Timestamp updatedAt;
+    private Timestamp lastlogin;
 
     public User() {
     }
@@ -91,5 +92,13 @@ public class User extends PanacheEntityBase {
 
     public void setUpdatedAt(Timestamp updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Timestamp getLastlogin() {
+        return lastlogin;
+    }
+
+    public void setLastlogin(Timestamp lastlogin) {
+        this.lastlogin = lastlogin;
     }
 }
