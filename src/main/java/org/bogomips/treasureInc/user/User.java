@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "users")
 public class User extends PanacheEntityBase {
+    public static String  CHARACTERS_PRIVATE_KEY = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    public static int DEFAULT_MONEY = 100;
+    public static int PRIVATE_KEY_LENGTH = 30;
     @Id
     @SequenceGenerator(name = "users_id_seq", sequenceName = "users_id_seq", allocationSize = 1)
     @GeneratedValue(generator = "users_id_seq")
@@ -31,7 +34,7 @@ public class User extends PanacheEntityBase {
     private Timestamp createdAt;
 
     private Timestamp updatedAt;
-    private Timestamp lastlogin;
+    private Timestamp lastLogin;
 
     public User() {
     }
@@ -94,11 +97,20 @@ public class User extends PanacheEntityBase {
         this.updatedAt = updatedAt;
     }
 
-    public Timestamp getLastlogin() {
-        return lastlogin;
+    public Timestamp getLastLogin() {
+        return lastLogin;
     }
 
-    public void setLastlogin(Timestamp lastlogin) {
-        this.lastlogin = lastlogin;
+    public void setLastLogin(Timestamp lastLogin) {
+        this.lastLogin = lastLogin;
+    }
+
+    public static String generatePrivateKey() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < PRIVATE_KEY_LENGTH; i++) {
+            int index = (int) (CHARACTERS_PRIVATE_KEY.length() * Math.random());
+            sb.append(CHARACTERS_PRIVATE_KEY.charAt(index));
+        }
+        return sb.toString();
     }
 }

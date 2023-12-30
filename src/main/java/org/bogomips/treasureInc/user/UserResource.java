@@ -4,7 +4,10 @@ import io.quarkus.panache.common.Sort;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.List;
 
 
@@ -26,16 +29,18 @@ public class UserResource {
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
+    @ResponseStatus(201)
+    @Transactional
     public User createUser(User user) {
-        user.persist();
+        persistNewUser(user);
         return user;
     }
 
     @PUT
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    @Transactional
     @Path("/{publicKey}")
+    @Transactional
     public User updateUser(String publicKey, User user) {
         User u = User.findByPublicKey(publicKey);
         if(u == null) {
@@ -43,5 +48,12 @@ public class UserResource {
         }
         u.setMoney(user.getMoney());
         return u;
+    }
+
+    private static void persistNewUser(User user) {
+        user.setPrivateKey(User.generatePrivateKey());
+        user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+        user.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
+        user.persist();
     }
 }
