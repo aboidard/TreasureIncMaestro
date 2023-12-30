@@ -39,6 +39,7 @@ public class User extends PanacheEntityBase {
     public User() {
     }
 
+    @SuppressWarnings("unused")
     public User(String publicKey, String privateKey, Integer money) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;

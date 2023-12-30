@@ -6,7 +6,6 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.ResponseStatus;
 
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
 
