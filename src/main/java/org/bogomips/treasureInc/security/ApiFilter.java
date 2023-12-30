@@ -10,6 +10,7 @@ public class ApiFilter {
 
     @ConfigProperty(name = "maestro.apikey")
     String maestroApiKey;
+
     @SuppressWarnings("unused")
     @ServerRequestFilter(preMatching = true)
     public void filterApiKey(ContainerRequestContext containerRequestContext){

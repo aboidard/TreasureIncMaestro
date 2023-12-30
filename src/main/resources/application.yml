@@ -15,13 +15,23 @@ quarkus:
   hibernate-orm:
     database:
       generation: none
+  mailer:
+    from: contact@treasure-inc.fr
+    host:
+    port:
+    username:
+    password:
+
 maestro:
   apikey:
+  adminEmail:
+
 "%dev":
   quarkus:
     log: 
       console:
         json: false
+
 "%test":
   quarkus:
     datasource:
@@ -39,3 +49,4 @@ maestro:
         json: false
   maestro:
     apikey: TESTAPIKEY
+    adminEmail: test.admin.maestro@yopmail.com
