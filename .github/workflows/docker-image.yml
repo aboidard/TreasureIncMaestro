@@ -15,4 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file src/main/docker/Dockerfile --tag 582629265664.dkr.ecr.eu-west-3.amazonaws.com/treasure-inc-maestro:$(date +%s)
+      run: chmod +x mvnw && docker build . --file src/main/docker/Dockerfile --tag 582629265664.dkr.ecr.eu-west-3.amazonaws.com/treasure-inc-maestro:$(date +%s)
