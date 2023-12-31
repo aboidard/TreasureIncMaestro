@@ -2,13 +2,11 @@ package org.bogomips.treasureInc;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
 import org.bogomips.treasureInc.user.User;
 import org.bogomips.treasureInc.user.UserResource;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.*;
 
 import java.sql.Timestamp;
 
@@ -25,6 +23,14 @@ public class UserRessourceTest {
     public static String API_KEY_TEST_HEADER = "X-API-KEY";
 
     public static Timestamp updatedAt;
+
+    @BeforeAll
+    @Transactional
+    public static void init() {
+        // truncate the user database
+        User.deleteAll();
+    }
+
     @Test
     @Order(1)
     public void shouldCreateUser() {

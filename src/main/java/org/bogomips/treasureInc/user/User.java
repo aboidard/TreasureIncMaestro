@@ -50,12 +50,12 @@ public class User extends PanacheEntityBase {
         return find("publicKey", publicKey).firstResult();
     }
 
-    public static User countByLastLoginGreaterThan(Timestamp lastLogin) {
-        return find("lastLogin > ?1", lastLogin).firstResult();
+    public static long countByLastLoginGreaterThan(Timestamp lastLogin) {
+        return find("lastLogin > ?1", lastLogin).count();
     }
 
-    public static Object countByCreatedAtGreaterThan(Timestamp timestamp) {
-        return find("createdAt > ?1", timestamp).firstResult();
+    public static long countByCreatedAtGreaterThan(Timestamp timestamp) {
+        return find("createdAt > ?1", timestamp).count();
     }
 
     public Integer getId() {
