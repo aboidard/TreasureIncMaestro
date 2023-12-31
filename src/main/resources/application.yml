@@ -16,7 +16,7 @@ quarkus:
     database:
       generation: none
   mailer:
-    from: contact@treasure-inc.fr
+    from: support@treasure-inc.fr
     host:
     port:
     username:
