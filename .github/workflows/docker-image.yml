@@ -24,15 +24,15 @@ jobs:
     - name: Get version
       id: get_version
       run: |
-        VERSION=$( mvn help:evaluate -Dexpression=project.version -q -DforceStdout )
-        echo "::set-output name=version::$VERSION"
+        echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
     - name: Build the Docker image
       env:
-        IMAGE_TAG: ${{ steps.get_version.outputs.version }}-${{ github.sha }}
+        IMAGE_TAG: ${{ steps.get_version.outputs.version }}
       run: |
         chmod +x mvnw 
         docker build . --file src/main/docker/Dockerfile --tag $ECR_REPOSITORY:$IMAGE_TAG
     - name: Push the Docker image
-      IMAGE_TAG: ${{ steps.get_version.outputs.version }}-${{ github.sha }}
+      env:
+        IMAGE_TAG: ${{ steps.get_version.outputs.version }}
       run: |
         docker push $ECR_REPOSITORY:$IMAGE_TAG
