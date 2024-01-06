@@ -35,11 +35,11 @@ public class UserWeeklyReportingTest {
         //create a bunch of users in database
         for(int i = 0; i < NUMBER_OF_TEST_USERS; i++){
             User u = new User();
-            u.setPublicKey("TESTPUBLIC" + i);
-            u.setMoney(100);
-            u.setCreatedAt(new Timestamp(System.currentTimeMillis()));
+            u.publicKey = "TESTPUBLIC" + i;
+            u.money = 100;
+            u.createdAt = new Timestamp(System.currentTimeMillis());
             if(i%2 == 0){
-                u.setLastLogin(new Timestamp(System.currentTimeMillis()));
+                u.lastLogin = new Timestamp(System.currentTimeMillis());
             }
             u.persist();
         }

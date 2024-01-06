@@ -45,14 +45,16 @@ public class UserResource {
         if(u == null) {
             throw new NotFoundException();
         }
-        u.setMoney(user.getMoney());
+        u.money = user.money;
         return u;
     }
 
     private static void persistNewUser(User user) {
-        user.setPrivateKey(User.generatePrivateKey());
-        user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
-        user.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
+        user.publicKey = User.generatePublicKey();
+        user.privateKey = User.generatePrivateKey();
+        user.money = User.DEFAULT_MONEY;
+        user.createdAt = new Timestamp(System.currentTimeMillis());
+        user.updatedAt = new Timestamp(System.currentTimeMillis());
         user.persist();
     }
 }

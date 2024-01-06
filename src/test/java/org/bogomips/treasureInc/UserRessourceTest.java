@@ -12,17 +12,18 @@ import java.sql.Timestamp;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.CoreMatchers.notNullValue;
 
 @QuarkusTest
 @TestHTTPEndpoint(UserResource.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class UserRessourceTest {
 
-    public static String PUBLIC_KEY = "TESTPUBLIC";
     public static String API_KEY_TEST = "TESTAPIKEY";
     public static String API_KEY_TEST_HEADER = "X-API-KEY";
 
     public static Timestamp updatedAt;
+    public static String publicKey;
 
     @BeforeAll
     @Transactional
@@ -35,23 +36,21 @@ public class UserRessourceTest {
     @Order(1)
     public void shouldCreateUser() {
         final User user = new User();
-        user.setPublicKey(PUBLIC_KEY);
-        user.setMoney(100);
-
         User u = given().body(user)
                 .header(API_KEY_TEST_HEADER, API_KEY_TEST)
                 .contentType("application/json")
                 .when().post()
                 .then()
                 .statusCode(Response.Status.CREATED.getStatusCode())
-                .body("publicKey", is(PUBLIC_KEY))
+                .body("publicKey", notNullValue())
                 .body("privateKey", is(nullValue()))
                 .body("money", is(User.DEFAULT_MONEY))
                 .body("id", is(1))
                 .body("createdAt", notNullValue())
                 .body("updatedAt", notNullValue())
                 .body("lastlogin", nullValue()).extract().as(User.class);
-        updatedAt = u.getUpdatedAt();
+        updatedAt = u.updatedAt;
+        publicKey = u.publicKey;
     }
 
     @Test
@@ -61,10 +60,10 @@ public class UserRessourceTest {
             .header(API_KEY_TEST_HEADER, API_KEY_TEST)
             .contentType("application/json")
             .body("{\"money\": 200}")
-            .put(PUBLIC_KEY)
+            .put(publicKey)
             .then()
             .statusCode(Response.Status.OK.getStatusCode())
-            .body("publicKey", is(PUBLIC_KEY))
+            .body("publicKey", notNullValue())
             .body("privateKey", is(nullValue()))
             .body("money", is(200))
             .body("id", is(1))
@@ -79,10 +78,10 @@ public class UserRessourceTest {
         given()
             .header(API_KEY_TEST_HEADER, API_KEY_TEST)
             .contentType("application/json")
-            .get(PUBLIC_KEY)
+            .get(publicKey)
             .then()
             .statusCode(Response.Status.OK.getStatusCode())
-                .body("publicKey", is(PUBLIC_KEY))
+                .body("publicKey", notNullValue())
                 .body("privateKey", is(nullValue()))
                 .body("money", is(200))
                 .body("id", is(1))
