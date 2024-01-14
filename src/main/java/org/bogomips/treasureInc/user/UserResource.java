@@ -1,7 +1,8 @@
 package org.bogomips.treasureInc.user;
 
+import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.panache.common.Sort;
-import jakarta.transaction.Transactional;
+import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.ResponseStatus;
@@ -11,50 +12,55 @@ import java.util.List;
 
 
 @Path("/users")
+@WithTransaction
 public class UserResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<User> users() {
+    public Uni<List<User>> users() {
         return User.listAll(Sort.by("id").descending());
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/{publicKey}")
-    public User users(String publicKey) {
-        return User.findByPublicKey(publicKey);
+    public Uni<User> users(String publicKey) {
+        return User.findByPublicKey(publicKey).onItem().ifNull().failWith(NotFoundException::new);
     }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @ResponseStatus(201)
-    @Transactional
-    public User createUser(User user) {
-        persistNewUser(user);
-        return user;
+    public Uni<User> createUser(User user) {
+        return persistNewUser(user).onItem().transform(u -> {
+            u.privateKey = null;
+            return u;
+        });
     }
 
     @PUT
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/{publicKey}")
-    @Transactional
-    public User updateUser(String publicKey, User user) {
-        User u = User.findByPublicKey(publicKey);
-        if(u == null) {
-            throw new NotFoundException();
-        }
-        u.money = user.money;
-        return u;
+    public Uni<User> updateUser(String publicKey, User user) {
+        return User.findByPublicKey(publicKey)
+                .onItem()
+                .ifNull()
+                .failWith(NotFoundException::new)
+                .invoke(foundUser -> {
+                    foundUser.money = user.money;
+                    foundUser.updatedAt = new Timestamp(System.currentTimeMillis());
+                });
     }
 
-    private static void persistNewUser(User user) {
+    private static Uni<User> persistNewUser(User user) {
         user.publicKey = User.generatePublicKey();
         user.privateKey = User.generatePrivateKey();
         user.money = User.DEFAULT_MONEY;
         user.createdAt = new Timestamp(System.currentTimeMillis());
         user.updatedAt = new Timestamp(System.currentTimeMillis());
-        user.persist();
+        user.lastLogin = new Timestamp(System.currentTimeMillis());
+
+        return user.persist();
     }
 }
