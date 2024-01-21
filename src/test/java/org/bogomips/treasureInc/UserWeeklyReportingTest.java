@@ -43,6 +43,8 @@ public class UserWeeklyReportingTest {
             u.createdAt = new Timestamp(System.currentTimeMillis());
             if (i % 2 == 0) {
                 u.lastLogin = new Timestamp(System.currentTimeMillis());
+            }else {
+                u.lastLogin = new Timestamp(System.currentTimeMillis() - 8 * 24 * 60 * 60 * 1000);
             }
             asserter.execute(() -> u.persist());
         }
@@ -62,7 +64,7 @@ public class UserWeeklyReportingTest {
                 .when().get("/sendWeeklyReport")
                 .then()
                 .statusCode(Response.Status.OK.getStatusCode())
-                .body(containsString("Number of users created last week : " + NUMBER_OF_TEST_USERS))
-                .body(containsString("Number of users logged in last week : " + NUMBER_OF_TEST_USERS / 2));
+                .body(containsString("Number of new users since last week : " + NUMBER_OF_TEST_USERS))
+                .body(containsString("Number of users who have logged in since last week : " + NUMBER_OF_TEST_USERS / 2));
     }
 }

@@ -17,7 +17,6 @@ import org.jboss.resteasy.reactive.ResponseStatus;
 import java.sql.Timestamp;
 
 @Path("reporting")
-@WithTransaction
 public class UserWeeklyReporting {
     @Inject
     ReactiveMailer mailer;
@@ -39,22 +38,21 @@ public class UserWeeklyReporting {
     @Produces("text/plain")
     @ResponseStatus(200)
     public Uni<String> sendWeeklyReport() {
-        return buildWeeklyReport().onItem().invoke(text ->
-        mailer.send(Mail.withText(adminEmail,"Weekly report", text)));
+        return buildWeeklyReport().map(reportText -> {mailer.send(Mail.withText(adminEmail, "Weekly report", reportText)).subscribe().with(
+                success -> System.out.println("Mail sent!"),
+                failure -> System.out.println("Failed to send mail"));
+            return reportText;
+        });
     }
 
-    protected Uni<String> buildWeeklyReport(){
-        Uni<Long> loginText = User.countByLastLoginGreaterThan(new Timestamp(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
-                .onItem().ifNull().failWith(NotFoundException::new);
-        Uni<Long> createdText = User.countByCreatedAtGreaterThan(new Timestamp(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
-                .onItem().ifNull().failWith(NotFoundException::new);
-
-
-//        return Uni.join().all().usingConcurrencyOf(1).unis(loginText, createdText).combinedWith((created, logged)  -> "Weekly report : \n" +
-//                "Number of users logged in last week : " + logged + "\n" +
-//                "Number of users created last week : " + created + "\n");
-        return Uni.combine().all().unis(loginText, createdText).combinedWith((created, logged)  -> "Weekly report : \n" +
-                                            "Number of users logged in last week : " + logged + "\n" +
-                                            "Number of users created last week : " + created + "\n");
+    @WithTransaction
+    protected Uni<String> buildWeeklyReport() {
+        return User.countByLastLoginGreaterThan(new Timestamp(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
+                .onItem().ifNull().failWith(NotFoundException::new)
+                .flatMap(textLogin -> User.countByCreatedAtGreaterThan(new Timestamp(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
+                        .onItem().ifNull().failWith(NotFoundException::new).map(textCreated -> new Long[] {textLogin, textCreated}))
+                .map(texts -> "Weekly report : \n" +
+                        "Number of new users since last week : " + texts[1] + "\n" +
+                        "Number of users who have logged in since last week : " + texts[0] + "\n");
     }
 }
