@@ -31,11 +31,8 @@ public class UserResource {
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @ResponseStatus(201)
-    public Uni<User> createUser(User user) {
-        return persistNewUser(user).onItem().transform(u -> {
-            u.privateKey = null;
-            return u;
-        });
+    public Uni<User> createUser() {
+        return persistNewUser().onItem().ifNull().failWith(NotFoundException::new);
     }
 
     @PUT
@@ -53,7 +50,8 @@ public class UserResource {
                 });
     }
 
-    private static Uni<User> persistNewUser(User user) {
+    private static Uni<User> persistNewUser() {
+        var user = new User();
         user.publicKey = User.generatePublicKey();
         user.privateKey = User.generatePrivateKey();
         user.money = User.DEFAULT_MONEY;

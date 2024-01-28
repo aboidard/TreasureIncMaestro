@@ -26,19 +26,10 @@ public class UserRessourceTest {
     public static Timestamp updatedAt;
     public static String publicKey;
 
-/*    @BeforeAll
-    @TestReactiveTransaction
-    @ExtendWith(VertxExtension.class)
-    public static void init(UniAsserter asserter) {
-        // truncate the user database
-        //User.deleteAll();
-    }*/
-
     @Test
     @Order(1)
     public void shouldCreateUser() {
-        final User user = new User();
-        User u = given().body(user)
+        User u = given()
                 .header(API_KEY_TEST_HEADER, API_KEY_TEST)
                 .contentType("application/json")
                 .when().post()
@@ -50,7 +41,8 @@ public class UserRessourceTest {
                 .body("id", is(1))
                 .body("createdAt", notNullValue())
                 .body("updatedAt", notNullValue())
-                .body("lastlogin", nullValue()).extract().as(User.class);
+                .body("lastlogin", nullValue())
+                .extract().as(User.class);
         updatedAt = u.updatedAt;
         publicKey = u.publicKey;
     }
