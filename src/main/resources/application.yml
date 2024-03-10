@@ -1,4 +1,7 @@
 quarkus:
+  application:
+    name: maestro
+    version: 0.0.6
   native:
     resources:
       includes: ../treasure-inc-conf/server/conf/.maestro.env
@@ -6,6 +9,13 @@ quarkus:
     port: 8082
     test-port: 8083
     test-timeout: 10s
+  kubernetes:
+    namespace: treasure-inc
+    ingress:
+      expose: true
+  container-image:
+    registry: 582629265664.dkr.ecr.eu-west-3.amazonaws.com
+    group: treasure-inc
   hibernate-orm:
     database:
       generation: none
@@ -28,7 +38,7 @@ maestro:
       reactive:
         url: vertx-reactive:postgresql://localhost:5432/treasure_inc
         max-size: 16
-    log: 
+    log:
       console:
         json: false
 
