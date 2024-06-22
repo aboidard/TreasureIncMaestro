@@ -5,17 +5,20 @@ import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.hibernate.reactive.panache.TransactionalUniAsserter;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
+import io.vertx.ext.mail.MailMessage;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import org.bogomips.treasureInc.reporting.UserWeeklyReporting;
 import org.bogomips.treasureInc.user.User;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.*;
+import org.wildfly.common.Assert;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
 @TestHTTPEndpoint(UserWeeklyReporting.class)
@@ -24,7 +27,11 @@ public class UserWeeklyReportingTest {
 
     public static String API_KEY_TEST = "TESTAPIKEY";
     public static String API_KEY_TEST_HEADER = "X-API-KEY";
-    public static Long NUMBER_OF_TEST_USERS = 10l;
+    public static Long NUMBER_OF_TEST_USERS = 10L;
+
+    @ConfigProperty(name = "maestro.adminEmail")
+    String mailTo;
+
     @Inject
     MockMailbox mailbox;
 
@@ -33,12 +40,12 @@ public class UserWeeklyReportingTest {
     @RunOnVertxContext
     public void init(TransactionalUniAsserter asserter) {
         // truncate the user database
-        asserter.execute(() -> User.deleteAll());
+        asserter.execute(User::deleteAll);
 
         //create a bunch of users in database
         for (int i = 0; i < NUMBER_OF_TEST_USERS; i++) {
             User u = new User();
-            u.publicKey = "TESTPUBLIC" + i;
+            u.publicKey = STR."TESTPUBLIC\{i}";
             u.money = 100;
             u.createdAt = new Timestamp(System.currentTimeMillis());
             if (i % 2 == 0) {
@@ -48,7 +55,7 @@ public class UserWeeklyReportingTest {
             }
             asserter.execute(() -> u.persist());
         }
-        asserter.assertEquals(() -> User.count(), NUMBER_OF_TEST_USERS);
+        asserter.assertEquals(User::count, NUMBER_OF_TEST_USERS);
     }
 
     @BeforeEach
@@ -64,7 +71,15 @@ public class UserWeeklyReportingTest {
                 .when().get("/sendWeeklyReport")
                 .then()
                 .statusCode(Response.Status.OK.getStatusCode())
-                .body(containsString("Number of new users since last week : " + NUMBER_OF_TEST_USERS))
-                .body(containsString("Number of users who have logged in since last week : " + NUMBER_OF_TEST_USERS / 2));
+                .body(containsString(STR."Number of new users since last week : \{NUMBER_OF_TEST_USERS}"))
+                .body(containsString(STR."Number of users who have logged in since last week : \{NUMBER_OF_TEST_USERS / 2}"));
+
+        //check that the mail was sent
+        List<MailMessage> sent = mailbox.getMailMessagesSentTo(mailTo);
+        Assert.assertTrue(sent.size() ==1);
+        MailMessage actual = sent.getFirst();
+        Assert.assertTrue(actual.getText().contains(STR."Number of new users since last week : \{NUMBER_OF_TEST_USERS}"));
+        Assert.assertTrue("Weekly report".equals(actual.getSubject()));
+        Assert.assertTrue(mailbox.getTotalMessagesSent() == 1);
     }
 }
