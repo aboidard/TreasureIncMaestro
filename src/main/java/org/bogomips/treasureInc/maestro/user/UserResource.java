@@ -1,4 +1,4 @@
-package org.bogomips.treasureInc.user;
+package org.bogomips.treasureInc.maestro.user;
 
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.panache.common.Sort;

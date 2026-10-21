@@ -1,4 +1,4 @@
-package org.bogomips.treasureInc.reporting;
+package org.bogomips.treasureInc.maestro.reporting;
 
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.mailer.Mail;
@@ -10,7 +10,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import org.bogomips.treasureInc.user.User;
+import org.bogomips.treasureInc.maestro.user.User;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.ResponseStatus;

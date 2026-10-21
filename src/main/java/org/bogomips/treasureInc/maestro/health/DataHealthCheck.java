@@ -1,4 +1,4 @@
-package org.bogomips.treasureInc.health;
+package org.bogomips.treasureInc.maestro.health;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;

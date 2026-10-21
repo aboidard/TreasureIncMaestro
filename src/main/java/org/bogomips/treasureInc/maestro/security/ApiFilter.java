@@ -1,4 +1,4 @@
-package org.bogomips.treasureInc.security;
+package org.bogomips.treasureInc.maestro.security;
 
 import io.quarkus.security.UnauthorizedException;
 import jakarta.ws.rs.container.ContainerRequestContext;
