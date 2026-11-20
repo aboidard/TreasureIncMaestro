@@ -40,7 +40,7 @@ public class UserWeeklyReportingTest {
     @RunOnVertxContext
     public void init(TransactionalUniAsserter asserter) {
         // truncate the user database
-        asserter.execute(User::deleteAll);
+        asserter.execute(() -> User.deleteAll());
 
         //create a bunch of users in database
         for (int i = 0; i < NUMBER_OF_TEST_USERS; i++) {
@@ -55,7 +55,7 @@ public class UserWeeklyReportingTest {
             }
             asserter.execute(() -> u.persist());
         }
-        asserter.assertEquals(User::count, NUMBER_OF_TEST_USERS);
+        asserter.assertEquals(() -> User.count(), NUMBER_OF_TEST_USERS);
     }
 
     @BeforeEach
