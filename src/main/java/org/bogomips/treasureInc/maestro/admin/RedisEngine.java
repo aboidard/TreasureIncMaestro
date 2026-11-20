@@ -28,38 +28,53 @@ class RedisEngine implements Engine {
 
     private static final Logger LOG = Logger.getLogger(RedisEngine.class);
     static final String FORCE_SYNC = "forceSync";
+    static final String SEND_GIFT = "sendGift";
 
     private final ReactivePubSubCommands<String> pubsub;
     private final ObjectMapper mapper;
     private final String requestChannel;
     private final String replyChannel;
     private final Duration syncTimeout;
+    private final Duration giftTimeout;
 
     RedisEngine(ReactiveRedisDataSource redis, ObjectMapper mapper,
                 @ConfigProperty(name = "maestro.engine.channels.requests", defaultValue = "message-log") String requestChannel,
                 @ConfigProperty(name = "maestro.engine.channels.replies", defaultValue = "message-log-res") String replyChannel,
-                @ConfigProperty(name = "maestro.engine.sync-timeout", defaultValue = "30s") Duration syncTimeout) {
+                @ConfigProperty(name = "maestro.engine.sync-timeout", defaultValue = "30s") Duration syncTimeout,
+                @ConfigProperty(name = "maestro.engine.gift-timeout", defaultValue = "30s") Duration giftTimeout) {
         this.pubsub = redis.pubsub(String.class);
         this.mapper = mapper;
         this.requestChannel = requestChannel;
         this.replyChannel = replyChannel;
         this.syncTimeout = syncTimeout;
+        this.giftTimeout = giftTimeout;
     }
 
     @Override
     public Uni<SyncReport> forceSync() {
-        return request(FORCE_SYNC, syncTimeout).map(reply -> {
+        return request(FORCE_SYNC, mapper.createObjectNode(), syncTimeout).map(reply -> {
             JsonNode body = reply.path("payload");
             return new SyncReport(body.path("startedAt").asText(), body.path("durationMs").asLong(),
                     body.path("syncedUsers").asInt(), body.path("errors").asInt());
         });
     }
 
-    /** The reply body ({status, message, payload}); fails unless its status is 2xx. */
-    Uni<JsonNode> request(String type, Duration timeout) {
+    @Override
+    public Uni<GiftReport> sendGift(GiftRequest gift) {
+        return request(SEND_GIFT, mapper.valueToTree(gift), giftTimeout).map(reply -> {
+            JsonNode body = reply.path("payload");
+            return new GiftReport(body.path("batch").asText(), body.path("sent").asInt());
+        });
+    }
+
+    /**
+     * The reply body ({status, message, payload}); fails unless its status is 2xx, with {@link RejectedException}
+     * for a 4xx.
+     */
+    Uni<JsonNode> request(String type, JsonNode params, Duration timeout) {
         String replyId = "maestro-" + UUID.randomUUID();
         ObjectNode envelope = mapper.createObjectNode().put("replyId", replyId);
-        envelope.putObject("payload").put("type", type).putObject("params");
+        envelope.putObject("payload").put("type", type).set("params", params);
         return Uni.createFrom().<JsonNode>emitter(emitter -> {
                     AtomicReference<ReactiveRedisSubscriber> subscriber = new AtomicReference<>();
                     AtomicBoolean terminated = new AtomicBoolean();
@@ -91,7 +106,8 @@ class RedisEngine implements Engine {
                     if (status < 200 || status >= 300) {
                         String message = body.hasNonNull("message") ? body.get("message").asText()
                                 : body.path("error").asText("engine error");
-                        return Uni.createFrom().failure(new FailureException(message));
+                        return Uni.createFrom().failure(status >= 400 && status < 500
+                                ? new RejectedException(message) : new FailureException(message));
                     }
                     return Uni.createFrom().item(body);
                 });
