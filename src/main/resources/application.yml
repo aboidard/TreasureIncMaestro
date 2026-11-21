@@ -5,6 +5,12 @@ quarkus:
   native:
     resources:
       includes: ../treasure-inc-conf/server/conf/.maestro.env
+  # /q/health and /q/metrics are served on a separate port that no Service or Ingress exposes,
+  # so they stay out of reach of the public ingress (GET /admin/health gives the health behind the API key)
+  management:
+    enabled: true
+    port: 9000
+    test-port: 9001
   http:
     port: 8082
     test-port: 8083
@@ -29,6 +35,21 @@ quarkus:
 maestro:
   apikey:
   adminEmail:
+  engine:
+    # the Redis pub/sub channels of the engine (engine.channels in its application.yml)
+    channels:
+      requests: message-log
+      replies: message-log-res
+    # how long POST /admin/sync waits for the engine
+    sync-timeout: 30s
+  status:
+    # a player is connected when its engine session had an action within this window
+    connected-window: 5m
+    # the time zone whose midnight starts the day of "newUsersToday"
+    zone: Europe/Paris
+  metrics:
+    # how often the Prometheus gauges (/q/metrics) are refreshed from GET /admin/status
+    refresh: 60s
 
 "%dev":
   quarkus:
@@ -38,6 +59,8 @@ maestro:
       reactive:
         url: vertx-reactive:postgresql://localhost:5432/treasure_inc
         max-size: 16
+    redis:
+      hosts: redis://localhost:6379
     log:
       console:
         json: false
@@ -53,6 +76,8 @@ maestro:
   maestro:
     apikey: TESTAPIKEY
     adminEmail: test.admin.maestro@yopmail.com
+    engine:
+      sync-timeout: 3s
 
 "%prod":
   quarkus:
@@ -62,3 +87,6 @@ maestro:
       reactive:
         url: vertx-reactive:postgresql://localhost:5432/treasure_inc
         max-size: 16
+    redis:
+      # overridden by QUARKUS_REDIS_HOSTS / QUARKUS_REDIS_PASSWORD (the engine's Redis)
+      hosts: redis://localhost:6379

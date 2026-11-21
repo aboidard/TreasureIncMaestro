@@ -56,6 +56,10 @@ public class User extends PanacheEntityBase {
         return find("createdAt > ?1", timestamp).count();
     }
 
+    public static Uni<Long> countByCreatedAtGreaterThanOrEqual(Timestamp timestamp) {
+        return find("createdAt >= ?1", timestamp).count();
+    }
+
     public static String generatePrivateKey() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < PRIVATE_KEY_LENGTH; i++) {
