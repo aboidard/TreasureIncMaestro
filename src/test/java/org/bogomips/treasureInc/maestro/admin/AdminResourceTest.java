@@ -64,6 +64,8 @@ public class AdminResourceTest {
         given().header(API_KEY_TEST_HEADER, "wrong").when().get("/status")
                 .then().statusCode(Response.Status.UNAUTHORIZED.getStatusCode());
         given().when().post("/sync").then().statusCode(Response.Status.UNAUTHORIZED.getStatusCode());
+        given().contentType("application/json").body("{}").when().post("/gifts")
+                .then().statusCode(Response.Status.UNAUTHORIZED.getStatusCode());
     }
 
     @Test
@@ -118,7 +120,7 @@ public class AdminResourceTest {
     @Test
     @Order(4)
     public void syncAsksTheEngineAndReturnsItsReport() {
-        fakeEngine = engineReplying(request -> {
+        fakeEngine = engineReplying("forceSync", request -> {
             ObjectNode body = mapper.createObjectNode().put("status", 200).put("message", "OK");
             body.putObject("payload").put("startedAt", "2026-11-20T10:00:00Z").put("durationMs", 37)
                     .put("syncedUsers", 4).put("errors", 1);
@@ -139,7 +141,7 @@ public class AdminResourceTest {
     @Test
     @Order(5)
     public void anEngineErrorIsABadGateway() {
-        fakeEngine = engineReplying(request -> mapper.createObjectNode().put("error", "database down"));
+        fakeEngine = engineReplying("forceSync", request -> mapper.createObjectNode().put("error", "database down"));
 
         given()
                 .header(API_KEY_TEST_HEADER, API_KEY_TEST)
@@ -161,12 +163,67 @@ public class AdminResourceTest {
                 .body("message", containsString("forceSync"));
     }
 
-    /** Subscribes to the request channel like the engine and answers forceSync requests with {@code reply}. */
-    private RedisSubscriber engineReplying(Function<JsonNode, JsonNode> reply) {
+    @Test
+    @Order(7)
+    public void aGiftIsForwardedToTheEngine() throws Exception {
+        java.util.concurrent.atomic.AtomicReference<JsonNode> received = new java.util.concurrent.atomic.AtomicReference<>();
+        fakeEngine = engineReplying("sendGift", request -> {
+            received.set(request.at("/payload/params"));
+            ObjectNode body = mapper.createObjectNode().put("status", 200).put("message", "OK");
+            body.putObject("payload").put("batch", "b-1").put("sent", 12);
+            return body;
+        });
+
+        given()
+                .header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .contentType("application/json")
+                .body("{\"title\":\"Lancement du jeu : profitez de ces gemmes gratuites !\","
+                        + "\"reward\":{\"gems\":1000,\"items\":2,\"rarity\":\"epic\"},"
+                        + "\"players\":{\"activeDays\":7,\"publicKeys\":[\"12345678900\"]},\"expiresInDays\":30}")
+                .when().post("/gifts")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("batch", is("b-1"))
+                .body("sent", is(12));
+
+        JsonNode params = received.get();
+        org.junit.jupiter.api.Assertions.assertEquals(mapper.readTree(
+                "{\"title\":\"Lancement du jeu : profitez de ces gemmes gratuites !\","
+                        + "\"reward\":{\"gems\":1000,\"items\":2,\"rarity\":\"epic\"},"
+                        + "\"players\":{\"activeDays\":7,\"publicKeys\":[\"12345678900\"]},\"expiresInDays\":30}"),
+                params, "the gift is sent as it was given, without the fields left out");
+    }
+
+    @Test
+    @Order(8)
+    public void aGiftRefusedByTheEngineIsABadRequest() {
+        fakeEngine = engineReplying("sendGift", request -> mapper.createObjectNode().put("status", 400)
+                .put("message", "Bad Request: title is required, 120 characters at most"));
+
+        given()
+                .header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .contentType("application/json")
+                .body("{\"reward\":{\"gems\":1000}}")
+                .when().post("/gifts")
+                .then()
+                .statusCode(Response.Status.BAD_REQUEST.getStatusCode())
+                .body("message", containsString("title is required"));
+
+        given()
+                .header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .contentType("application/json")
+                .body("{\"title\":\"t\",\"reward\":{\"gems\":\"beaucoup\"}}")
+                .when().post("/gifts")
+                .then()
+                .statusCode(Response.Status.BAD_REQUEST.getStatusCode());
+    }
+
+    /** Subscribes to the request channel like the engine and answers the requests of this type with {@code reply}. */
+    private RedisSubscriber engineReplying(String type, Function<JsonNode, JsonNode> reply) {
         return redis.pubsub(String.class).subscribe(REQUESTS, message -> {
             try {
                 JsonNode request = mapper.readTree(message);
-                if (!"forceSync".equals(request.at("/payload/type").asText())) {
+                if (!type.equals(request.at("/payload/type").asText())) {
                     return;
                 }
                 ObjectNode envelope = mapper.createObjectNode();

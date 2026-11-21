@@ -42,6 +42,8 @@ maestro:
       replies: message-log-res
     # how long POST /admin/sync waits for the engine
     sync-timeout: 30s
+    # how long POST /admin/gifts waits for the engine (one INSERT for all the players)
+    gift-timeout: 30s
   status:
     # a player is connected when its engine session had an action within this window
     connected-window: 5m
@@ -78,6 +80,7 @@ maestro:
     adminEmail: test.admin.maestro@yopmail.com
     engine:
       sync-timeout: 3s
+      gift-timeout: 3s
 
 "%prod":
   quarkus:

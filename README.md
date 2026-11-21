@@ -45,7 +45,7 @@ Le moteur (`TreasureIncENGINE_rebirth`) garde l'état chaud des joueurs dans **R
   et retire de Redis les sessions inactives depuis plus d'1 h ;
 - le moteur compte les requêtes qu'il reçoit dans Redis, par tranche de 10 s (`treasure_inc.stats.requests.<epochSeconde / 10>`, expiration 2 min).
 
-Maestro lit Redis **sans jamais y écrire** (sauf pour envoyer une requête au moteur) et lit PostgreSQL.
+Maestro lit Redis **sans jamais y écrire** (sauf pour envoyer une requête au moteur) et lit PostgreSQL : même les cadeaux sont écrits en base par le moteur.
 
 ### `POST /admin/sync` — forcer la synchronisation Redis → PostgreSQL
 
@@ -75,6 +75,49 @@ Réponse `200` :
 
 Erreurs : `504` `{"message": …}` si aucun moteur ne répond dans `maestro.engine.sync-timeout` (30 s par défaut),
 `502` `{"message": …}` si le moteur répond par une erreur, `401` sans clé d'API.
+
+### `POST /admin/gifts` — envoyer un cadeau aux joueurs
+
+Met un cadeau dans la **boîte à cadeaux** des joueurs (dans le jeu, le bouton cadeau à côté de celui des quêtes) :
+un intitulé, et des gemmes, de l'or et/ou des objets que le joueur récupère quand il ouvre le coffre du cadeau.
+Comme pour la synchronisation, c'est le moteur qui fait le travail : Maestro relaie le corps de la requête au moteur
+(requête `sendGift` sur le canal Redis), qui le vérifie et écrit une ligne par joueur dans la table `gifts`, en une
+seule requête SQL. Voir « Boîte à cadeaux » dans le README du moteur.
+
+```json
+{
+  "title": "Lancement du jeu : profitez de ces gemmes gratuites !",
+  "reward": { "gems": 1000, "money": 5000, "items": 3, "rarity": "epic" },
+  "players": { "activeDays": 30 },
+  "expiresInDays": 14
+}
+```
+
+| Champ | Obligatoire | Sens |
+|---|---|---|
+| `title` | oui | l'intitulé lu par le joueur, 120 caractères au plus |
+| `reward.gems` | non | gemmes données (0 à 100 000 000) |
+| `reward.money` | non | or donné (0 à 100 000 000) |
+| `reward.items` | non | nombre d'objets générés à la récupération (0 à 100) |
+| `reward.rarity` | non | rareté imposée de ces objets : `common`, `uncommon`, `rare`, `epic`, `legendary` ; sans elle chaque objet est tiré comme dans un coffre |
+| `players` | non | **sans lui, tous les joueurs** reçoivent le cadeau ; ses critères se cumulent (ET) |
+| `players.activeDays` | non | joueurs actifs au moins une fois depuis `x` jours (dernière connexion ou dernière écriture de leur session en base) |
+| `players.inactiveDays` | non | joueurs absents depuis au moins `x` jours, pour les faire revenir |
+| `players.createdDays` | non | joueurs inscrits depuis `x` jours au plus, pour accueillir les nouveaux |
+| `players.publicKeys` | non | liste de clés publiques (11 chiffres, 10 000 au plus) : ces joueurs seulement |
+| `expiresInDays` | non | le cadeau expire après ce nombre de jours (1 à 3650) ; sans lui il n'expire jamais |
+
+Il faut au moins une gemme, une pièce ou un objet.
+
+Réponse `200` : l'identifiant de l'envoi, écrit sur chaque cadeau (colonne `gifts.batch`), et le nombre de joueurs qui
+l'ont reçu.
+
+```json
+{ "batch": "4b0c6f1e-7d0a-4e57-9b8e-2f3c1d9a6e21", "sent": 1532 }
+```
+
+Erreurs : `400` `{"message": …}` quand le cadeau est invalide (la raison donnée par le moteur), `504` si aucun moteur
+ne répond dans `maestro.engine.gift-timeout` (30 s par défaut), `502` si le moteur échoue, `401` sans clé d'API.
 
 ### `GET /admin/status` — résumé de production
 
@@ -128,6 +171,7 @@ Une jauge est lue de façon synchrone : elle ne doit pas interroger Redis ou Pos
 | `quarkus.redis.hosts` / `quarkus.redis.password` | `redis://localhost:6379` | Le Redis **du moteur** (variables `QUARKUS_REDIS_HOSTS`, `QUARKUS_REDIS_PASSWORD`). |
 | `maestro.engine.channels.requests` / `.replies` | `message-log` / `message-log-res` | Canaux pub/sub du moteur (`engine.channels`). |
 | `maestro.engine.sync-timeout` | `30s` | Attente maximale de la réponse à `POST /admin/sync`. |
+| `maestro.engine.gift-timeout` | `30s` | Attente maximale de la réponse à `POST /admin/gifts`. |
 | `maestro.status.connected-window` | `5m` | Fenêtre d'activité d'un joueur « connecté ». |
 | `maestro.status.zone` | `Europe/Paris` | Fuseau du « aujourd'hui » de `newUsersToday`. |
 | `maestro.metrics.refresh` | `60s` | Rafraîchissement des jauges Prometheus. |
@@ -137,9 +181,11 @@ Une jauge est lue de façon synchrone : elle ne doit pas interroger Redis ou Pos
 ```shell
 curl -H "X-API-KEY: $MAESTRO_API_KEY" http://localhost:8082/admin/status
 curl -X POST -H "X-API-KEY: $MAESTRO_API_KEY" http://localhost:8082/admin/sync
+curl -X POST -H "X-API-KEY: $MAESTRO_API_KEY" -H "Content-Type: application/json" http://localhost:8082/admin/gifts \
+  -d '{"title": "Lancement du jeu : profitez de ces gemmes gratuites !", "reward": {"gems": 1000}}'
 ```
 
-Les requêtes Bruno correspondantes sont dans `treasure-inc-conf/rest/T_INC/maestro` (`admin status`, `admin sync`).
+Les requêtes Bruno correspondantes sont dans `treasure-inc-conf/rest/T_INC/maestro` (`admin status`, `admin sync`, `admin gifts`).
 
 ## Tests
 
