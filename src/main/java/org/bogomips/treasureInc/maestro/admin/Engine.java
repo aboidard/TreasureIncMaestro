@@ -18,6 +18,24 @@ public interface Engine {
      */
     Uni<GiftReport> sendGift(GiftRequest gift);
 
+    /** The settings of the game (maintenance, oldest client version). Fails like {@link #forceSync}. */
+    Uni<GameSettings> getSettings();
+
+    /** Switches the maintenance on or off; fails like {@link #sendGift}. */
+    Uni<GameSettings> setMaintenance(GameSettings.MaintenanceRequest maintenance);
+
+    /** Sets the oldest version of the Unity client that may log in; fails like {@link #sendGift}. */
+    Uni<GameSettings> setMinClientVersion(String version);
+
+    /** Every event, open or not: {"events": [...]}, as the engine describes them. Fails like {@link #forceSync}. */
+    Uni<com.fasterxml.jackson.databind.JsonNode> listEvents();
+
+    /** Creates or replaces an event (the engine checks it); fails like {@link #sendGift}. */
+    Uni<com.fasterxml.jackson.databind.JsonNode> saveEvent(com.fasterxml.jackson.databind.JsonNode event);
+
+    /** Deletes an event; fails like {@link #sendGift} ({@link RejectedException} when there is none). */
+    Uni<com.fasterxml.jackson.databind.JsonNode> deleteEvent(String code);
+
     class TimeoutException extends RuntimeException {
         public TimeoutException(String type, java.time.Duration timeout) {
             super("The engine did not answer \"" + type + "\" within " + timeout.toMillis() + " ms");

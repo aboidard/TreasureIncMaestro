@@ -44,6 +44,8 @@ maestro:
     sync-timeout: 30s
     # how long POST /admin/gifts waits for the engine (one INSERT for all the players)
     gift-timeout: 30s
+    # how long the settings requests (GET / PUT /admin/settings...) wait for the engine
+    settings-timeout: 10s
   status:
     # a player is connected when its engine session had an action within this window
     connected-window: 5m
@@ -81,6 +83,7 @@ maestro:
     engine:
       sync-timeout: 3s
       gift-timeout: 3s
+      settings-timeout: 3s
 
 "%prod":
   quarkus:

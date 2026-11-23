@@ -218,6 +218,128 @@ public class AdminResourceTest {
                 .statusCode(Response.Status.BAD_REQUEST.getStatusCode());
     }
 
+    @Test
+    @Order(9)
+    public void theMaintenanceIsForwardedToTheEngine() throws Exception {
+        java.util.concurrent.atomic.AtomicReference<JsonNode> received = new java.util.concurrent.atomic.AtomicReference<>();
+        fakeEngine = engineReplying("setMaintenance", request -> {
+            received.set(request.at("/payload/params"));
+            return settingsReply(true, true, "Mise à jour", "0.22");
+        });
+
+        given()
+                .header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .contentType("application/json")
+                .body("{\"enabled\":true,\"reason\":\"Mise à jour\",\"start\":null,\"end\":\"2026-11-22T12:00:00Z\"}")
+                .when().put("/settings/maintenance")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("maintenance.enabled", is(true))
+                .body("maintenance.active", is(true))
+                .body("maintenance.reason", is("Mise à jour"))
+                .body("minClientVersion", is("0.22"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(true, received.get().get("enabled").asBoolean());
+        org.junit.jupiter.api.Assertions.assertEquals("2026-11-22T12:00:00Z", received.get().get("end").asText());
+
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST).contentType("application/json").body("{}")
+                .when().put("/settings/maintenance")
+                .then().statusCode(Response.Status.BAD_REQUEST.getStatusCode());
+        given().when().get("/settings").then().statusCode(Response.Status.UNAUTHORIZED.getStatusCode());
+    }
+
+    @Test
+    @Order(10)
+    public void settingsAndClientVersionComeFromTheEngine() {
+        fakeEngine = engineReplying("getSettings", request -> settingsReply(false, false, null, "0.21"));
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .when().get("/settings")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("maintenance.enabled", is(false))
+                .body("maintenance.reason", nullValue())
+                .body("minClientVersion", is("0.21"));
+        stopFakeEngine();
+
+        fakeEngine = engineReplying("setMinClientVersion", request -> "bad".equals(request.at("/payload/params/version").asText())
+                ? mapper.createObjectNode().put("status", 400).put("message", "Bad Request: version is numbers")
+                : settingsReply(false, false, null, request.at("/payload/params/version").asText()));
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST).contentType("application/json")
+                .body("{\"version\":\" 0.23 \"}")
+                .when().put("/settings/min-client-version")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("minClientVersion", is("0.23"));
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST).contentType("application/json")
+                .body("{\"version\":\"bad\"}")
+                .when().put("/settings/min-client-version")
+                .then()
+                .statusCode(Response.Status.BAD_REQUEST.getStatusCode())
+                .body("message", containsString("version"));
+    }
+
+    @Test
+    void eventsAreSavedThroughTheEngineWithTheirCodeFromThePath() {
+        fakeEngine = engineReplying("saveEvent", request -> {
+            JsonNode params = request.at("/payload/params");
+            if (params.path("level").asInt() > 3) {
+                return mapper.createObjectNode().put("status", 400).put("message", "Bad Request: level is 1 to 3");
+            }
+            ObjectNode body = mapper.createObjectNode().put("status", 200).put("message", "OK");
+            body.set("payload", params);
+            return body;
+        });
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST).contentType("application/json")
+                .body("{\"name\":\"Lancement\",\"level\":1,\"floors\":10,\"rewards\":{\"gems\":1000},\"maxPerDay\":1}")
+                .when().put("/events/lancement")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("code", is("lancement"))
+                .body("rewards.gems", is(1000));
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST).contentType("application/json")
+                .body("{\"name\":\"X\",\"level\":9,\"floors\":10}")
+                .when().put("/events/x")
+                .then()
+                .statusCode(Response.Status.BAD_REQUEST.getStatusCode())
+                .body("message", containsString("level"));
+        stopFakeEngine();
+
+        fakeEngine = engineReplying("listEvents", request -> {
+            ObjectNode body = mapper.createObjectNode().put("status", 200).put("message", "OK");
+            body.putObject("payload").putArray("events").addObject().put("code", "lancement").put("open", true);
+            return body;
+        });
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .when().get("/events")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode())
+                .body("events[0].code", is("lancement"));
+        stopFakeEngine();
+
+        fakeEngine = engineReplying("deleteEvent", request -> "lancement".equals(request.at("/payload/params/code").asText())
+                ? mapper.createObjectNode().put("status", 200).put("message", "OK")
+                        .set("payload", mapper.createObjectNode().put("code", "lancement"))
+                : mapper.createObjectNode().put("status", 404).put("message", "Event not found"));
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .when().delete("/events/lancement")
+                .then()
+                .statusCode(Response.Status.OK.getStatusCode());
+        given().header(API_KEY_TEST_HEADER, API_KEY_TEST)
+                .when().delete("/events/morgoth")
+                .then()
+                .statusCode(Response.Status.BAD_REQUEST.getStatusCode())
+                .body("message", containsString("not found"));
+    }
+
+    private ObjectNode settingsReply(boolean enabled, boolean active, String reason, String version) {
+        ObjectNode body = mapper.createObjectNode().put("status", 200).put("message", "OK");
+        ObjectNode payload = body.putObject("payload");
+        payload.putObject("maintenance").put("enabled", enabled).put("active", active).put("reason", reason)
+                .putNull("start").put("end", enabled ? "2026-11-22T12:00:00Z" : null);
+        payload.put("minClientVersion", version).put("updatedAt", "2026-11-22T10:00:00Z");
+        return body;
+    }
+
     /** Subscribes to the request channel like the engine and answers the requests of this type with {@code reply}. */
     private RedisSubscriber engineReplying(String type, Function<JsonNode, JsonNode> reply) {
         return redis.pubsub(String.class).subscribe(REQUESTS, message -> {

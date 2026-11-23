@@ -29,6 +29,10 @@ public class User extends PanacheEntityBase {
 
     public Integer money;
 
+    // The premium currency, owned by the engine: read only here, the column defaults to 0 on insert.
+    @Column(insertable = false, updatable = false)
+    public Integer gems;
+
     public Timestamp createdAt;
 
     public Timestamp updatedAt;
