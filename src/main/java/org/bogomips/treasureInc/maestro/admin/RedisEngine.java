@@ -29,6 +29,12 @@ class RedisEngine implements Engine {
     private static final Logger LOG = Logger.getLogger(RedisEngine.class);
     static final String FORCE_SYNC = "forceSync";
     static final String SEND_GIFT = "sendGift";
+    static final String GET_SETTINGS = "getSettings";
+    static final String SET_MAINTENANCE = "setMaintenance";
+    static final String SET_MIN_CLIENT_VERSION = "setMinClientVersion";
+    static final String LIST_EVENTS = "listEvents";
+    static final String SAVE_EVENT = "saveEvent";
+    static final String DELETE_EVENT = "deleteEvent";
 
     private final ReactivePubSubCommands<String> pubsub;
     private final ObjectMapper mapper;
@@ -36,18 +42,21 @@ class RedisEngine implements Engine {
     private final String replyChannel;
     private final Duration syncTimeout;
     private final Duration giftTimeout;
+    private final Duration settingsTimeout;
 
     RedisEngine(ReactiveRedisDataSource redis, ObjectMapper mapper,
                 @ConfigProperty(name = "maestro.engine.channels.requests", defaultValue = "message-log") String requestChannel,
                 @ConfigProperty(name = "maestro.engine.channels.replies", defaultValue = "message-log-res") String replyChannel,
                 @ConfigProperty(name = "maestro.engine.sync-timeout", defaultValue = "30s") Duration syncTimeout,
-                @ConfigProperty(name = "maestro.engine.gift-timeout", defaultValue = "30s") Duration giftTimeout) {
+                @ConfigProperty(name = "maestro.engine.gift-timeout", defaultValue = "30s") Duration giftTimeout,
+                @ConfigProperty(name = "maestro.engine.settings-timeout", defaultValue = "10s") Duration settingsTimeout) {
         this.pubsub = redis.pubsub(String.class);
         this.mapper = mapper;
         this.requestChannel = requestChannel;
         this.replyChannel = replyChannel;
         this.syncTimeout = syncTimeout;
         this.giftTimeout = giftTimeout;
+        this.settingsTimeout = settingsTimeout;
     }
 
     @Override
@@ -65,6 +74,51 @@ class RedisEngine implements Engine {
             JsonNode body = reply.path("payload");
             return new GiftReport(body.path("batch").asText(), body.path("sent").asInt());
         });
+    }
+
+    @Override
+    public Uni<GameSettings> getSettings() {
+        return request(GET_SETTINGS, mapper.createObjectNode(), settingsTimeout).map(this::settings);
+    }
+
+    @Override
+    public Uni<GameSettings> setMaintenance(GameSettings.MaintenanceRequest maintenance) {
+        return request(SET_MAINTENANCE, mapper.valueToTree(maintenance), settingsTimeout).map(this::settings);
+    }
+
+    @Override
+    public Uni<GameSettings> setMinClientVersion(String version) {
+        return request(SET_MIN_CLIENT_VERSION, mapper.createObjectNode().put("version", version), settingsTimeout)
+                .map(this::settings);
+    }
+
+    @Override
+    public Uni<JsonNode> listEvents() {
+        return request(LIST_EVENTS, mapper.createObjectNode(), settingsTimeout).map(reply -> reply.path("payload"));
+    }
+
+    @Override
+    public Uni<JsonNode> saveEvent(JsonNode event) {
+        return request(SAVE_EVENT, event, settingsTimeout).map(reply -> reply.path("payload"));
+    }
+
+    @Override
+    public Uni<JsonNode> deleteEvent(String code) {
+        return request(DELETE_EVENT, mapper.createObjectNode().put("code", code), settingsTimeout)
+                .map(reply -> reply.path("payload"));
+    }
+
+    private GameSettings settings(JsonNode reply) {
+        JsonNode body = reply.path("payload");
+        JsonNode m = body.path("maintenance");
+        return new GameSettings(new GameSettings.Maintenance(m.path("enabled").asBoolean(), m.path("active").asBoolean(),
+                text(m, "reason"), text(m, "start"), text(m, "end")),
+                body.path("minClientVersion").asText("0"), text(body, "updatedAt"));
+    }
+
+    private static String text(JsonNode node, String field) {
+        JsonNode v = node.get(field);
+        return v == null || v.isNull() ? null : v.asText();
     }
 
     /**

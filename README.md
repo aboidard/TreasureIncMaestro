@@ -119,6 +119,30 @@ l'ont reçu.
 Erreurs : `400` `{"message": …}` quand le cadeau est invalide (la raison donnée par le moteur), `504` si aucun moteur
 ne répond dans `maestro.engine.gift-timeout` (30 s par défaut), `502` si le moteur échoue, `401` sans clé d'API.
 
+### `GET /admin/settings`, `PUT /admin/settings/maintenance`, `PUT /admin/settings/min-client-version` — maintenance et version du client
+
+Les réglages du jeu sont gardés par le moteur (table `app_settings`, recopiée dans la clé Redis `treasure_inc.settings`
+que lit l'API) : Maestro les lit et les change par les requêtes `getSettings`, `setMaintenance` et `setMinClientVersion`
+du moteur. Les trois endpoints répondent les réglages :
+
+```json
+{
+  "maintenance": { "enabled": true, "active": true, "reason": "Mise à jour du serveur", "start": null, "end": "2026-11-22T12:00:00Z" },
+  "minClientVersion": "0.22",
+  "updatedAt": "2026-11-22T10:00:00Z"
+}
+```
+
+- `PUT /admin/settings/maintenance` `{enabled, reason, start, end}` : `reason` (500 caractères au plus) est obligatoire
+  pour activer ; `start` et `end` (ISO-8601) sont optionnels. Activée, la maintenance s'applique de `start` (tout de
+  suite sans lui) à `end` (jusqu'à ce qu'on la coupe sans lui) : `active` dit si elle est en cours. Pendant ce temps
+  l'API et le moteur refusent les requêtes du jeu (`503` avec la raison) ; l'administration reste servie.
+- `PUT /admin/settings/min-client-version` `{version}` : la plus ancienne version du client Unity
+  (`Application.version`, ex. `0.22` ; `0` : toutes) qui peut se connecter. L'API la donne dans `/healthcheck`.
+
+Erreurs : `400` `{"message": …}` si le moteur refuse la valeur, `504` sans réponse du moteur dans
+`maestro.engine.settings-timeout` (10 s), `502` s'il répond par une erreur.
+
 ### `GET /admin/status` — résumé de production
 
 Réponse `200` (contrat figé, utilisé par la page d'administration du site web) :
@@ -172,6 +196,7 @@ Une jauge est lue de façon synchrone : elle ne doit pas interroger Redis ou Pos
 | `maestro.engine.channels.requests` / `.replies` | `message-log` / `message-log-res` | Canaux pub/sub du moteur (`engine.channels`). |
 | `maestro.engine.sync-timeout` | `30s` | Attente maximale de la réponse à `POST /admin/sync`. |
 | `maestro.engine.gift-timeout` | `30s` | Attente maximale de la réponse à `POST /admin/gifts`. |
+| `maestro.engine.settings-timeout` | `10s` | Attente maximale des réponses de `/admin/settings`. |
 | `maestro.status.connected-window` | `5m` | Fenêtre d'activité d'un joueur « connecté ». |
 | `maestro.status.zone` | `Europe/Paris` | Fuseau du « aujourd'hui » de `newUsersToday`. |
 | `maestro.metrics.refresh` | `60s` | Rafraîchissement des jauges Prometheus. |
@@ -183,6 +208,8 @@ curl -H "X-API-KEY: $MAESTRO_API_KEY" http://localhost:8082/admin/status
 curl -X POST -H "X-API-KEY: $MAESTRO_API_KEY" http://localhost:8082/admin/sync
 curl -X POST -H "X-API-KEY: $MAESTRO_API_KEY" -H "Content-Type: application/json" http://localhost:8082/admin/gifts \
   -d '{"title": "Lancement du jeu : profitez de ces gemmes gratuites !", "reward": {"gems": 1000}}'
+curl -X PUT -H "X-API-KEY: $MAESTRO_API_KEY" -H "Content-Type: application/json" http://localhost:8082/admin/settings/maintenance \
+  -d '{"enabled": true, "reason": "Mise à jour du serveur", "end": "2026-11-22T12:00:00Z"}'
 ```
 
 Les requêtes Bruno correspondantes sont dans `treasure-inc-conf/rest/T_INC/maestro` (`admin status`, `admin sync`, `admin gifts`).
